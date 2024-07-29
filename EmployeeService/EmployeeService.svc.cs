@@ -1,19 +1,30 @@
-﻿using System.Collections.Generic;
+﻿using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
-using EmployeeService.Models;
 using Newtonsoft.Json;
+using EmployeeService.Models;
+using System;
 
 namespace EmployeeService
 {
-    // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "Service1" in code, svc and config file together.
-    // NOTE: In order to launch WCF Test Client for testing this service, please select Service1.svc or Service1.svc.cs at the Solution Explorer and start debugging.
     public class Service1 : IEmployeeService
     {
-        private string connectionString = "Data Source=DESKTOP-PB0N439\\SQLEXPRESS;Initial Catalog=TestDb;Integrated Security=True;";
+        private readonly string connectionString = "Data Source=DESKTOP-PB0N439\\SQLEXPRESS;Initial Catalog=TestDb;Integrated Security=True;";
+        private readonly IMemoryCache _cache;
+
+        public Service1()
+        {
+            _cache = new MemoryCache(new MemoryCacheOptions());
+        }
 
         public async Task<string> GetEmployeeById(int id)
         {
+            if (_cache.TryGetValue(id.ToString(), out string cachedResult))
+            {
+                return cachedResult;
+            }
+
             Employee employee = null;
             List<Employee> subordinates = new List<Employee>();
 
@@ -67,7 +78,18 @@ namespace EmployeeService
                     employee.Subordinates = subordinates;
                 }
             }
-            return JsonConvert.SerializeObject(employee);
+
+            var result = JsonConvert.SerializeObject(employee);
+
+            if (employee != null)
+            {
+                _cache.Set(id.ToString(), result, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+                });
+            }
+
+            return result;
         }
 
         public async Task EnableEmployee(int id, bool enable)
@@ -82,6 +104,11 @@ namespace EmployeeService
                     command.Parameters.AddWithValue("@ID", id);
                     await command.ExecuteNonQueryAsync();
                 }
+            }
+
+            if (_cache.TryGetValue(id.ToString(), out _))
+            {
+                _cache.Remove(id.ToString());
             }
         }
     }
