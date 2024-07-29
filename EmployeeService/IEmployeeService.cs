@@ -1,6 +1,6 @@
-﻿using EmployeeService.Models;
-using System.ServiceModel;
+﻿using System.ServiceModel;
 using System.ServiceModel.Web;
+using System.Threading.Tasks;
 
 
 namespace EmployeeService
@@ -11,12 +11,12 @@ namespace EmployeeService
     {
         [OperationContract]
         [WebInvoke(Method = "GET", UriTemplate = "GetEmployeeById?id={id}",
-            ResponseFormat = WebMessageFormat.Json, BodyStyle = WebMessageBodyStyle.Bare)]
-        string GetEmployeeById(int id);
+                   ResponseFormat = WebMessageFormat.Json, BodyStyle = WebMessageBodyStyle.Bare)]
+        Task<string> GetEmployeeById(int id);
 
         [OperationContract]
         [WebInvoke(Method = "PUT", UriTemplate = "EnableEmployee?id={id}&enable={enable}",
-            BodyStyle = WebMessageBodyStyle.WrappedRequest)]
-        void EnableEmployee(int id, bool enable);
+                   BodyStyle = WebMessageBodyStyle.WrappedRequest)]
+        Task EnableEmployee(int id, bool enable);
     }
 }

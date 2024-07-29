@@ -1,23 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace EmployeeService.Models
 {
+    [DataContract]
     public class Employee
     {
+        [DataMember]
         public int ID { get; set; }
-        public string Name { get; set; }
-        public int? ManagerID { get; set; }
-        public bool Enable { get; set; }
-        public List<Employee> Subordinates { get; set; }
 
-        public Employee()
-        {
-            Subordinates = new List<Employee>();
-        }
+        [DataMember]
+        public string Name { get; set; }
+
+        [DataMember]
+        public int? ManagerID { get; set; }
+
+        [DataMember]
+        public bool Enable { get; set; }
+
+        [DataMember]
+        public List<Employee> Subordinates { get; set; } = new List<Employee>();
     }
 }

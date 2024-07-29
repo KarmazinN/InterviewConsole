@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
+﻿using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Linq;
+using System.Threading.Tasks;
 using EmployeeService.Models;
 using Newtonsoft.Json;
 
@@ -14,55 +12,75 @@ namespace EmployeeService
     {
         private string connectionString = "Data Source=DESKTOP-PB0N439\\SQLEXPRESS;Initial Catalog=TestDb;Integrated Security=True;";
 
-        public string GetEmployeeById(int id)
+        public async Task<string> GetEmployeeById(int id)
         {
-            var employees = new Dictionary<int, Employee>();
+            Employee employee = null;
+            List<Employee> subordinates = new List<Employee>();
 
             using (var connection = new SqlConnection(connectionString))
             {
-                connection.Open();
-                string query = "SELECT * FROM Employee";
-                using (var command = new SqlCommand(query, connection))
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var employee = new Employee
-                        {
-                            ID = reader.GetInt32(0),
-                            Name = reader.GetString(1),
-                            ManagerID = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
-                            Enable = reader.GetBoolean(3)
-                        };
+                await connection.OpenAsync();
 
-                        employees[employee.ID] = employee;
+                // Запит для вибірки основного працівника
+                string employeeQuery = "SELECT ID, Name, ManagerID, Enable FROM Employee WHERE ID = @Id";
+                using (var employeeCommand = new SqlCommand(employeeQuery, connection))
+                {
+                    employeeCommand.Parameters.AddWithValue("@Id", id);
+                    using (var reader = await employeeCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            employee = new Employee
+                            {
+                                ID = reader.GetInt32(0),
+                                Name = reader.GetString(1),
+                                ManagerID = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
+                                Enable = reader.GetBoolean(3)
+                            };
+                        }
                     }
                 }
-            }
 
-            foreach (var employee in employees.Values)
-            {
-                if (employee.ManagerID.HasValue && employees.ContainsKey(employee.ManagerID.Value))
+                if (employee != null)
                 {
-                    employees[employee.ManagerID.Value].Subordinates.Add(employee);
+                    // Запит для вибірки підлеглих
+                    string subordinatesQuery = "SELECT ID, Name, ManagerID, Enable FROM Employee WHERE ManagerID = @ManagerId";
+                    using (var subordinatesCommand = new SqlCommand(subordinatesQuery, connection))
+                    {
+                        subordinatesCommand.Parameters.AddWithValue("@ManagerId", id);
+                        using (var reader = await subordinatesCommand.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                var subordinate = new Employee
+                                {
+                                    ID = reader.GetInt32(0),
+                                    Name = reader.GetString(1),
+                                    ManagerID = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
+                                    Enable = reader.GetBoolean(3)
+                                };
+
+                                subordinates.Add(subordinate);
+                            }
+                        }
+                    }
+                    employee.Subordinates = subordinates;
                 }
             }
-
-            var result = employees.ContainsKey(id) ? employees[id] : null;
-            return JsonConvert.SerializeObject(result);
+            return JsonConvert.SerializeObject(employee);
         }
 
-        public void EnableEmployee(int id, bool enable)
+        public async Task EnableEmployee(int id, bool enable)
         {
             using (var connection = new SqlConnection(connectionString))
             {
-                connection.Open();
+                await connection.OpenAsync();
                 string query = "UPDATE Employee SET Enable = @Enable WHERE ID = @ID";
                 using (var command = new SqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Enable", enable);
                     command.Parameters.AddWithValue("@ID", id);
-                    command.ExecuteNonQuery();
+                    await command.ExecuteNonQueryAsync();
                 }
             }
         }
